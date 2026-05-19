@@ -2,11 +2,11 @@
 
 A custom statusline for [Claude Code](https://claude.com/claude-code). Shows your working directory, git branch, model, context usage, session cost, and rate-limit status on a single line.
 
-Example output:
+Example:
 
-```
-~/code/myproject | main (3 changes) | Opus 4.7 | ctx: 42% (~84k) | $0.123 | lmt: 35%/12% (3h:42m/4d:18h)
-```
+![statusline screenshot](screenshot.png)
+
+(Above ran with `--ctx-warn 40 --ctx-crit 50` to demonstrate the warn indicator.)
 
 ## Requirements
 
@@ -36,7 +36,7 @@ The installer:
 - Refuses to overwrite an existing different `statusline.sh`; shows a diff and prompts before changing an existing `statusLine` block
 - Is safe to re-run: identical content is a no-op
 
-Restart Claude Code (or open a new session) to see the statusline.
+Once installed, your statusline should update on the next refresh. If it doesn't, restart Claude Code.
 
 ## Uninstall
 
