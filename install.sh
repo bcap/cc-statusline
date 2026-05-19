@@ -2,12 +2,12 @@
 #
 # Installs statusline.sh and wires it into ~/.claude/settings.json.
 #
-# By default, downloads the latest statusline.sh from the canonical gist.
+# By default, downloads the latest statusline.sh from github.com/bcap/cc-statusline.
 # With --local, copies the statusline.sh sitting next to this script.
 
 set -euo pipefail
 
-GIST_RAW_URL="https://gist.githubusercontent.com/bcap/ab544fa7ea0ab284c38a11f19aac5d3a/raw/statusline.sh"
+STATUSLINE_RAW_URL="https://raw.githubusercontent.com/bcap/cc-statusline/main/statusline.sh"
 
 usage() {
     cat <<EOF
@@ -15,7 +15,7 @@ Usage: install.sh [--local] [--path PATH]
 
 Flags:
   --local        copy the statusline.sh sitting next to this script instead
-                 of downloading the latest version from the canonical gist
+                 of downloading the latest version from the canonical repo
   --path PATH    install destination [~/.claude/statusline.sh]
   -h, --help     show this help and exit
 
@@ -74,8 +74,8 @@ if [[ $use_local -eq 1 ]]; then
     fi
     cp "$local_src" "$src"
 else
-    printf "Fetching %s\n" "$GIST_RAW_URL" >&2
-    if ! curl -fsSL "$GIST_RAW_URL" -o "$src"; then
+    printf "Fetching %s\n" "$STATUSLINE_RAW_URL" >&2
+    if ! curl -fsSL "$STATUSLINE_RAW_URL" -o "$src"; then
         printf "install.sh: download failed\n" >&2
         exit 1
     fi
