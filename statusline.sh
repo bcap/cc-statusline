@@ -8,11 +8,11 @@ fi
 # --- Flag defaults ---
 CTX_WARN=150
 CTX_CRIT=200
-RATE_5H_WARN=75
-RATE_5H_CRIT=100
-RATE_WEEK_WARN=75
-RATE_WEEK_CRIT=100
-FIELDS="cwd,git,model,ctx,cost,rate"
+LIMITS_5H_WARN=75
+LIMITS_5H_CRIT=100
+LIMITS_WEEK_WARN=75
+LIMITS_WEEK_CRIT=100
+FIELDS="cwd,git,model,ctx,cost,limits"
 SEPARATOR=" | "
 COST_PRECISION=3
 WARN_STR="⚠️"
@@ -29,10 +29,10 @@ Reads the Claude Code status JSON from stdin and prints a single-line status.
 Flags (defaults in []):
   --ctx-warn K          context warn threshold, k-tokens [$CTX_WARN]
   --ctx-crit K          context critical threshold, k-tokens [$CTX_CRIT]
-  --rate-5h-warn P      5h rate-limit warn % [$RATE_5H_WARN]
-  --rate-5h-crit P      5h rate-limit critical % [$RATE_5H_CRIT]
-  --rate-week-warn P    weekly rate-limit warn % [$RATE_WEEK_WARN]
-  --rate-week-crit P    weekly rate-limit critical % [$RATE_WEEK_CRIT]
+  --limits-5h-warn P    5h rate-limit warn % [$LIMITS_5H_WARN]
+  --limits-5h-crit P    5h rate-limit critical % [$LIMITS_5H_CRIT]
+  --limits-week-warn P  weekly rate-limit warn % [$LIMITS_WEEK_WARN]
+  --limits-week-crit P  weekly rate-limit critical % [$LIMITS_WEEK_CRIT]
   --fields LIST         comma-list; order = display order [$FIELDS]
                         see FIELDS section below for valid names
   --separator STR       field separator [$SEPARATOR]
@@ -50,8 +50,8 @@ FIELDS:
   ctx              context window usage %, k-tokens; warn/crit indicator
                    when over --ctx-warn / --ctx-crit thresholds
   cost             session cost in USD, e.g. "\$0.123"
-  rate             5h/weekly rate-limit %s + reset countdowns; warn/crit
-                   indicator when over --rate-*-warn / --rate-*-crit
+  limits           5h/weekly rate-limit %s + reset countdowns; warn/crit
+                   indicator when over --limits-*-warn / --limits-*-crit
   session          session name (or "UNNAMED")
   session_id       full session UUID
   effort           effort level (e.g. "high")
@@ -72,10 +72,10 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --ctx-warn)        CTX_WARN="$2";        shift 2;;
         --ctx-crit)        CTX_CRIT="$2";        shift 2;;
-        --rate-5h-warn)    RATE_5H_WARN="$2";    shift 2;;
-        --rate-5h-crit)    RATE_5H_CRIT="$2";    shift 2;;
-        --rate-week-warn)  RATE_WEEK_WARN="$2";  shift 2;;
-        --rate-week-crit)  RATE_WEEK_CRIT="$2";  shift 2;;
+        --limits-5h-warn)   LIMITS_5H_WARN="$2";   shift 2;;
+        --limits-5h-crit)   LIMITS_5H_CRIT="$2";   shift 2;;
+        --limits-week-warn) LIMITS_WEEK_WARN="$2"; shift 2;;
+        --limits-week-crit) LIMITS_WEEK_CRIT="$2"; shift 2;;
         --fields)          FIELDS="$2";          shift 2;;
         --separator)       SEPARATOR="$2";       shift 2;;
         --cost-precision)  COST_PRECISION="$2";  shift 2;;
@@ -171,9 +171,9 @@ if [[ -n $ratelimit_5hr && -n $ratelimit_week ]]; then
     ratelimit_5hr_reset="$(awk -v r="$ratelimit_5hr_reset" -v n="$now" 'BEGIN { printf "%d", r - n }' | human_duration)"
     ratelimit_week_reset="$(awk -v r="$ratelimit_week_reset" -v n="$now" 'BEGIN { printf "%d", r - n }' | human_duration)"
     ratelimit_token=""
-    if awk -v a="$ratelimit_5hr" -v b="$ratelimit_week" -v ca="$RATE_5H_CRIT" -v cb="$RATE_WEEK_CRIT" 'BEGIN { exit !(a >= ca || b >= cb) }'; then
+    if awk -v a="$ratelimit_5hr" -v b="$ratelimit_week" -v ca="$LIMITS_5H_CRIT" -v cb="$LIMITS_WEEK_CRIT" 'BEGIN { exit !(a >= ca || b >= cb) }'; then
         ratelimit_token="$CRIT_STR"
-    elif awk -v a="$ratelimit_5hr" -v b="$ratelimit_week" -v wa="$RATE_5H_WARN" -v wb="$RATE_WEEK_WARN" 'BEGIN { exit !(a >= wa || b >= wb) }'; then
+    elif awk -v a="$ratelimit_5hr" -v b="$ratelimit_week" -v wa="$LIMITS_5H_WARN" -v wb="$LIMITS_WEEK_WARN" 'BEGIN { exit !(a >= wa || b >= wb) }'; then
         ratelimit_token="$WARN_STR"
     fi
     ratelimit=$(printf "%s%.0f%%/%.0f%% (%s/%s)" "$ratelimit_token" "$ratelimit_5hr" "$ratelimit_week" "$ratelimit_5hr_reset" "$ratelimit_week_reset")
@@ -218,7 +218,7 @@ total_duration_display=""
 
 # --- Compose status line ---
 # Field tokens map to their already-built display strings. cwd/git/model/session
-# render as-is; ctx/cost/rate keep the label prefixes the old fixed printf used.
+# render as-is; ctx/cost/limits keep the label prefixes the old fixed printf used.
 field_value() {
     case "$1" in
         cwd)             printf "%s" "${project_dir/$HOME/\~}";;
@@ -226,7 +226,7 @@ field_value() {
         model)           [[ -n "$model" ]]                 && printf "%s" "$model";;
         ctx)             [[ -n "$ctx_display" ]]           && printf "ctx: %s" "$ctx_display";;
         cost)            [[ -n "$cost_display" ]]          && printf "\$%s" "$cost_display";;
-        rate)            [[ -n "$ratelimit" ]]             && printf "lmt: %s" "$ratelimit";;
+        limits)          [[ -n "$ratelimit" ]]             && printf "lmt: %s" "$ratelimit";;
         session)         [[ -n "$session_name" ]]          && printf "%s" "$session_name";;
         session_id)      [[ -n "$session_id" ]]            && printf "%s" "$session_id";;
         effort)          [[ -n "$effort_level" ]]          && printf "%s" "$effort_level";;

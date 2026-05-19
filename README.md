@@ -60,15 +60,15 @@ Pass flags to `statusline.sh` in your `~/.claude/settings.json`:
 
 | Flag | Default | Description |
 |---|---|---|
-| `--fields LIST` | `cwd,git,model,ctx,cost,rate` | Comma-list of fields; order = display order |
+| `--fields LIST` | `cwd,git,model,ctx,cost,limits` | Comma-list of fields; order = display order |
 | `--separator STR` | ` \| ` | Separator between fields |
 | `--cost-precision N` | `3` | Decimal places for cost |
 | `--ctx-warn K` | `150` | Context warn threshold (k-tokens) |
 | `--ctx-crit K` | `200` | Context critical threshold (k-tokens) |
-| `--rate-5h-warn P` | `75` | 5-hour rate-limit warn % |
-| `--rate-5h-crit P` | `100` | 5-hour rate-limit critical % |
-| `--rate-week-warn P` | `75` | Weekly rate-limit warn % |
-| `--rate-week-crit P` | `100` | Weekly rate-limit critical % |
+| `--limits-5h-warn P` | `75` | 5-hour rate-limit warn % |
+| `--limits-5h-crit P` | `100` | 5-hour rate-limit critical % |
+| `--limits-week-warn P` | `75` | Weekly rate-limit warn % |
+| `--limits-week-crit P` | `100` | Weekly rate-limit critical % |
 | `--warn-str STR` | `⚠️` | Warn indicator prefix |
 | `--crit-str STR` | `🔥` | Critical indicator prefix |
 | `--debug PATH` | — | Append a trace of each invocation to PATH |
@@ -83,7 +83,7 @@ Default-on:
 - `model` — model display name, e.g. `Opus 4.7`
 - `ctx` — context usage %, k-tokens; warn/crit indicator over threshold
 - `cost` — session cost in USD
-- `rate` — 5h/weekly rate-limit %s + reset countdowns; warn/crit indicator over threshold
+- `limits` — 5h/weekly rate-limit %s + reset countdowns; warn/crit indicator over threshold
 
 Opt-in (add to `--fields`):
 
