@@ -1,6 +1,6 @@
 # claude code statusline
 
-A custom statusline for [Claude Code](https://claude.com/claude-code). Shows your working directory, git branch, model, context usage, session cost, and rate-limit status on a single line.
+A custom statusline for [Claude Code](https://claude.com/claude-code). By default it shows your working directory, git branch, model, context usage, session cost, and rate-limit status on a single line. [More fields available](#available-fields), configurable via flags.
 
 Example:
 
