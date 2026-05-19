@@ -130,11 +130,11 @@ if [[ -n "$ctx_used" ]]; then
         tokens_used_k=$(awk -v used="$ctx_used" -v size="$ctx_window_size" 'BEGIN { printf "%d", used * size / 100 / 1000 }')
     fi
     if [[ -n "$tokens_used_k" ]] && awk -v t="$tokens_used_k" -v threshold="$CTX_CRIT" 'BEGIN { exit !(t >= threshold) }'; then
-        ctx_display=$(printf "%s%d%% (~%sk)" "$CRIT_STR" "$ctx_used" "$tokens_used_k")
+        ctx_display=$(printf "%s~%sk (%d%%)" "$CRIT_STR" "$tokens_used_k" "$ctx_used")
     elif [[ -n "$tokens_used_k" ]] && awk -v t="$tokens_used_k" -v threshold="$CTX_WARN" 'BEGIN { exit !(t >= threshold) }'; then
-        ctx_display=$(printf "%s%d%% (~%sk)" "$WARN_STR" "$ctx_used" "$tokens_used_k")
+        ctx_display=$(printf "%s~%sk (%d%%)" "$WARN_STR" "$tokens_used_k" "$ctx_used")
     else
-        ctx_display=$(printf "%d%% (~%sk)" "$ctx_used" "$tokens_used_k")
+        ctx_display=$(printf "~%sk (%d%%)" "$tokens_used_k" "$ctx_used")
     fi
 fi
 
