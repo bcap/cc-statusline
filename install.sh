@@ -62,6 +62,17 @@ if [[ $use_local -eq 0 ]]; then
     command -v curl >/dev/null || { printf "install.sh: curl not found\n" >&2; exit 1; }
 fi
 
+cat >&2 <<EOF
+Installing cc-statusline (https://github.com/bcap/cc-statusline)
+
+This will:
+  1. Place the statusline script at $dest_display
+  2. Point Claude Code at it by setting .statusLine in ~/.claude/settings.json
+
+Nothing is written until any conflicts are shown and confirmed.
+
+EOF
+
 src="$(mktemp)"
 trap 'rm -f "$src"' EXIT
 
@@ -92,7 +103,8 @@ if [[ -e "$dest" ]]; then
     if cmp -s "$src" "$dest"; then
         dest_action="skip"
     else
-        printf "install.sh: %s exists and differs; refusing to overwrite\n" "$dest" >&2
+        printf "A statusline script already exists at %s and differs from the one being installed.\n" "$dest" >&2
+        printf "Refusing to overwrite. Diff (current -> incoming) below; re-run with --path to install elsewhere if needed.\n\n" >&2
         diff -u "$dest" "$src" || true
         exit 1
     fi
@@ -122,13 +134,16 @@ settings_changed=1
 if [[ $settings_changed -eq 0 && "$dest_action" == "skip" ]]; then
     printf "Script at %s already up to date\n" "$dest" >&2
     printf "settings.json already configured for %s\n" "$dest_display" >&2
+    printf "\ncc-statusline is already installed — nothing to do.\n" >&2
     exit 0
 fi
 
 had_block="$(printf '%s' "$old_json" | jq 'has("statusLine")')"
 if [[ $settings_changed -eq 1 && "$had_block" == "true" ]]; then
-    printf "Proposed change to %s:\n" "$settings" >&2
+    printf "Your %s already has a .statusLine configured, and it differs from what we'd set.\n" "$settings" >&2
+    printf "Here is the proposed change so you can review before anything is written:\n\n" >&2
     diff -u <(printf '%s\n' "$old_norm") <(printf '%s\n' "$proposed_norm") || true
+    printf "\n" >&2
     if [[ ! -r /dev/tty ]]; then
         printf "install.sh: no TTY available for confirmation; aborting\n" >&2
         exit 1
@@ -166,3 +181,6 @@ if [[ $settings_changed -eq 1 ]]; then
 else
     printf "settings.json already configured for %s\n" "$dest_display" >&2
 fi
+
+printf "\ncc-statusline installed successfully.\n" >&2
+printf "Any running Claude Code sessions should pick up the new statusline on the next refresh.\n" >&2
