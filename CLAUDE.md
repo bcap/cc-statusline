@@ -11,8 +11,8 @@ Sample input lives in `statusline_input_example.json`.
 
 ## Files
 
-- `statusline.sh` — the script. Pure bash + `jq` + `awk`/`git`/`date`. No build step.
-- `install.sh` — installer. By default curls `statusline.sh` from the GitHub raw URL on `main`; `--local` copies the sibling file. Patches `~/.claude/settings.json` `.statusLine` (prompts on diff when a block already exists). Aborts rather than overwriting a differing destination script.
+- `statusline.sh` — the script. Pure bash + `jq` + `awk`/`git`/`date`. No build step. Line 2 carries a `# cc-statusline` marker the installer uses to recognize prior installs; do not remove it.
+- `install.sh` — installer. By default curls `statusline.sh` from the GitHub raw URL on `main`; `--local` copies the sibling file. Patches `~/.claude/settings.json` `.statusLine` (prompts on diff when a block already exists). If a destination script already exists: identical → no-op; differs but contains the `# cc-statusline` marker → diff + prompt (upgrade); differs without the marker → abort (foreign file).
 - `statusline_input_example.json` — example stdin payload, useful for manual testing.
 
 ## Architecture notes

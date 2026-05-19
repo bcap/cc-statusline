@@ -98,13 +98,18 @@ if [[ "$first" != "#!"*bash* ]]; then
     exit 1
 fi
 
+CC_STATUSLINE_MARKER="# cc-statusline"
+
 dest_action="write"
+dest_needs_confirm=0
 if [[ -e "$dest" ]]; then
     if cmp -s "$src" "$dest"; then
         dest_action="skip"
+    elif grep -qF "$CC_STATUSLINE_MARKER" "$dest" 2>/dev/null; then
+        dest_needs_confirm=1
     else
-        printf "A statusline script already exists at %s and differs from the one being installed.\n" "$dest" >&2
-        printf "Refusing to overwrite. Diff (current -> incoming) below; re-run with --path to install elsewhere if needed.\n\n" >&2
+        printf "A script already exists at %s and does not look like a cc-statusline install.\n" "$dest" >&2
+        printf "Refusing to overwrite. Diff (current -> incoming) below; re-run with --path to install elsewhere.\n\n" >&2
         diff -u "$dest" "$src" || true
         exit 1
     fi
@@ -139,11 +144,24 @@ if [[ $settings_changed -eq 0 && "$dest_action" == "skip" ]]; then
 fi
 
 had_block="$(printf '%s' "$old_json" | jq 'has("statusLine")')"
-if [[ $settings_changed -eq 1 && "$had_block" == "true" ]]; then
+settings_needs_confirm=0
+[[ $settings_changed -eq 1 && "$had_block" == "true" ]] && settings_needs_confirm=1
+
+if [[ $dest_needs_confirm -eq 1 ]]; then
+    printf "An existing cc-statusline install was found at %s and differs from this version.\n" "$dest" >&2
+    printf "Diff (installed -> incoming) below:\n\n" >&2
+    diff -u "$dest" "$src" || true
+    printf "\n" >&2
+fi
+
+if [[ $settings_needs_confirm -eq 1 ]]; then
     printf "Your %s already has a .statusLine configured, and it differs from what we'd set.\n" "$settings" >&2
-    printf "Here is the proposed change so you can review before anything is written:\n\n" >&2
+    printf "Proposed change:\n\n" >&2
     diff -u <(printf '%s\n' "$old_norm") <(printf '%s\n' "$proposed_norm") || true
     printf "\n" >&2
+fi
+
+if [[ $dest_needs_confirm -eq 1 || $settings_needs_confirm -eq 1 ]]; then
     if [[ ! -r /dev/tty ]]; then
         printf "install.sh: no TTY available for confirmation; aborting\n" >&2
         exit 1
@@ -163,7 +181,11 @@ if [[ "$dest_action" == "write" ]]; then
     cp "$src" "$tmpdest"
     chmod 755 "$tmpdest"
     mv "$tmpdest" "$dest"
-    printf "Installed %s\n" "$dest" >&2
+    if [[ $dest_needs_confirm -eq 1 ]]; then
+        printf "Updated %s\n" "$dest" >&2
+    else
+        printf "Installed %s\n" "$dest" >&2
+    fi
 else
     printf "Script at %s already up to date\n" "$dest" >&2
 fi

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# cc-statusline (https://github.com/bcap/cc-statusline)
 
 if [[ -n "${STATUSLINE_DEBUG_REENTRY:-}" ]]; then
     set -xv
