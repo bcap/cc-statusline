@@ -44,7 +44,7 @@ Remove `~/.claude/statusline.sh` and delete the `statusLine` key from `~/.claude
 
 ## Configuration
 
-Pass flags to `statusline.sh` in your `~/.claude/settings.json`:
+After installing, you can pass flags to `statusline.sh` in your `~/.claude/settings.json`:
 
 ```json
 {
