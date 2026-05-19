@@ -108,8 +108,18 @@ if [[ -e "$dest" ]]; then
     elif grep -qF "$CC_STATUSLINE_MARKER" "$dest" 2>/dev/null; then
         dest_needs_confirm=1
     else
-        printf "A script already exists at %s and does not look like a cc-statusline install.\n" "$dest" >&2
-        printf "Refusing to overwrite. Diff (current -> incoming) below; re-run with --path to install elsewhere.\n\n" >&2
+        if [[ -t 2 ]]; then red=$'\033[31m'; bold=$'\033[1m'; reset=$'\033[0m'; else red=""; bold=""; reset=""; fi
+        printf "%sRefusing to overwrite %s%s\n" "$bold$red" "$dest" "$reset" >&2
+        printf "\n" >&2
+        printf "A file already exists at that path and it does not look like a cc-statusline install\n" >&2
+        printf "(no %s marker found). It may belong to another tool or be a custom script of yours.\n" "$CC_STATUSLINE_MARKER" >&2
+        printf "To stay safe, the installer will not touch it.\n" >&2
+        printf "\n" >&2
+        printf "Options:\n" >&2
+        printf "  - Inspect the file and, if you want cc-statusline instead, remove or rename it and re-run.\n" >&2
+        printf "  - Install to a different location with: install.sh --path <other-path>\n" >&2
+        printf "\n" >&2
+        printf "Diff between the existing file and the cc-statusline version follows:\n\n" >&2
         diff -u "$dest" "$src" || true
         exit 1
     fi
