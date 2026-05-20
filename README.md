@@ -15,11 +15,19 @@ Example:
 
 ## Install
 
-One-liner:
+One-liner (installs latest from `main`):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/bcap/cc-statusline/main/install.sh | bash
 ```
+
+Pin to a tagged release with `TAG=<tag>` (see [tags](https://github.com/bcap/cc-statusline/tags)):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/bcap/cc-statusline/main/install.sh | TAG=v0.2 bash
+```
+
+`TAG` accepts any git ref (tag, branch, or commit SHA); it defaults to `main`.
 
 Or clone and install from a local copy:
 

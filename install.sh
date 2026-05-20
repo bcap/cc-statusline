@@ -3,11 +3,13 @@
 # Installs statusline.py and wires it into ~/.claude/settings.json.
 #
 # By default, downloads the latest statusline.py from github.com/bcap/cc-statusline.
+# Set TAG=<git-ref> (e.g. TAG=v0.2) to pin to a tagged release; defaults to main.
 # With --local, copies the statusline.py sitting next to this script.
 
 set -euo pipefail
 
-STATUSLINE_RAW_URL="https://raw.githubusercontent.com/bcap/cc-statusline/main/statusline.py"
+TAG="${TAG:-main}"
+STATUSLINE_RAW_URL="https://raw.githubusercontent.com/bcap/cc-statusline/${TAG}/statusline.py"
 
 usage() {
     cat <<EOF
