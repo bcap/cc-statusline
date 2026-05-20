@@ -17,9 +17,10 @@ Sample input lives in `statusline_input_example.json`.
 
 ## Architecture notes
 
-- Field-driven rendering: each token in `--fields` (default `cwd,git,model,ctx,cost,limits`) maps to a case branch in `field_value()` that prints its already-computed display string. To add a field: compute its display string above, add the case, and document it in the `usage()` `FIELDS:` block.
+- Field-driven rendering: each token in `--fields` (default `cwd,git,model,ctx,sessioncost,limits`) maps to a case branch in `field_value()` that prints its already-computed display string. To add a field: compute its display string above, add the case, and document it in the `usage()` `FIELDS:` block.
 - Empty field outputs are skipped (no dangling separators).
-- Thresholds (`--ctx-warn/crit`, `--limits-{5h,week}-{warn,crit}`) gate `WARN_STR`/`CRIT_STR` prefixes. Comparisons use `awk` for float safety.
+- Thresholds (`--ctx-warn/crit`, `--limits-{5h,week}-{warn,crit}`, `--cache-warn/crit`) gate `WARN_STR`/`CRIT_STR` prefixes. Comparisons use `awk` for float safety. `--cache-*` is inverted (low hit ratio is bad).
+- Per-model pricing lives in `model_prices()` near the top of the script, sourced from https://platform.claude.com/docs/en/about-claude/pricing. `turncost` applies the prompt-cache multipliers (5m write = 1.25×, read = 0.1×) from https://platform.claude.com/docs/en/build-with-claude/prompt-caching. Claude Code always writes at 5m TTL — 1h is not used. Unknown model id → empty turncost.
 - `--debug PATH` self-re-execs with `set -xv` and stderr appended to PATH; the `STATUSLINE_DEBUG_REENTRY` env var prevents recursion.
 - Git info uses `--no-optional-locks` to avoid contending with concurrent git operations in the user's session.
 

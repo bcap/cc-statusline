@@ -12,7 +12,30 @@ LIMITS_5H_WARN=75
 LIMITS_5H_CRIT=100
 LIMITS_WEEK_WARN=75
 LIMITS_WEEK_CRIT=100
-FIELDS="cwd,git,model,ctx,cost,limits"
+CACHE_WARN=80
+CACHE_CRIT=50
+FIELDS="cwd,git,model,ctx,sessioncost,limits"
+
+# --- Model pricing (USD per million tokens) ---
+# Source: https://platform.claude.com/docs/en/about-claude/pricing
+# Cache write 5m = 1.25x base input; cache read = 0.1x base input.
+# Cache write 1h not used (Claude Code clients always write at 5m TTL).
+# Format per model: "<input_per_mtok> <output_per_mtok>"
+model_prices() {
+    case "$1" in
+        claude-opus-4-7)    printf "5 25";;
+        claude-opus-4-6)    printf "5 25";;
+        claude-opus-4-5)    printf "5 25";;
+        claude-opus-4-1)    printf "15 75";;
+        claude-opus-4)      printf "15 75";;
+        claude-sonnet-4-6)  printf "3 15";;
+        claude-sonnet-4-5)  printf "3 15";;
+        claude-sonnet-4)    printf "3 15";;
+        claude-haiku-4-5)   printf "1 5";;
+        claude-haiku-3-5)   printf "0.80 4";;
+        *) ;;
+    esac
+}
 SEPARATOR=" | "
 COST_PRECISION=3
 WARN_STR="⚠️"
@@ -33,6 +56,8 @@ Flags (defaults in []):
   --limits-5h-crit P    5h rate-limit critical % [$LIMITS_5H_CRIT]
   --limits-week-warn P  weekly rate-limit warn % [$LIMITS_WEEK_WARN]
   --limits-week-crit P  weekly rate-limit critical % [$LIMITS_WEEK_CRIT]
+  --cache-warn P        cache hit ratio warn % (warn when below) [$CACHE_WARN]
+  --cache-crit P        cache hit ratio critical % (crit when below) [$CACHE_CRIT]
   --fields LIST         comma-list; order = display order [$FIELDS]
                         see FIELDS section below for valid names
   --separator STR       field separator [$SEPARATOR]
@@ -49,7 +74,10 @@ FIELDS:
   model            model display name, e.g. "Opus 4.7"
   ctx              context window usage %, k-tokens; warn/crit indicator
                    when over --ctx-warn / --ctx-crit thresholds
-  cost             session cost in USD, e.g. "\$0.123"
+  sessioncost      total session cost in USD, e.g. "\$0.123"
+  turncost         estimated cost in USD of the last API call, computed from
+                   current_usage tokens and per-model pricing. Empty before the
+                   first API call, after /compact, or for unknown models.
   limits           5h/weekly rate-limit %s + reset countdowns; warn/crit
                    indicator when over --limits-*-warn / --limits-*-crit
   session          session name (or "UNNAMED")
@@ -64,6 +92,10 @@ FIELDS:
   changes          total lines added + removed, prefixed with "Δ"
   added            total lines added, prefixed with "+"
   removed          total lines removed, prefixed with "-"
+  cachehit         prompt cache hit ratio for the last API call, computed as
+                   cache_read / (cache_read + cache_creation + input). Warn/crit
+                   indicator when below --cache-warn / --cache-crit (inverted:
+                   low is bad). Empty before the first API call and after /compact.
 EOF
 }
 
@@ -76,6 +108,8 @@ while [[ $# -gt 0 ]]; do
         --limits-5h-crit)   LIMITS_5H_CRIT="$2";   shift 2;;
         --limits-week-warn) LIMITS_WEEK_WARN="$2"; shift 2;;
         --limits-week-crit) LIMITS_WEEK_CRIT="$2"; shift 2;;
+        --cache-warn)      CACHE_WARN="$2";      shift 2;;
+        --cache-crit)      CACHE_CRIT="$2";      shift 2;;
         --fields)          FIELDS="$2";          shift 2;;
         --separator)       SEPARATOR="$2";       shift 2;;
         --cost-precision)  COST_PRECISION="$2";  shift 2;;
@@ -139,11 +173,50 @@ if [[ -n "$ctx_used" ]]; then
     fi
 fi
 
-# Cost
+# Session cost
 cost_display=""
 cost="$(echo "$current_status" | jq -r '.cost.total_cost_usd // empty')"
 if [[ -n "$cost" ]]; then
     cost_display=$(awk -v c="$cost" -v p="$COST_PRECISION" 'BEGIN { printf "%.*f", p, c }')
+fi
+
+# Turn cost (last API call). Uses per-model pricing constants above and the
+# prompt-cache multipliers (5m write = 1.25x, read = 0.1x) from
+# https://platform.claude.com/docs/en/build-with-claude/prompt-caching
+turncost_display=""
+model_id="$(echo "$current_status" | jq -r '.model.id // empty')"
+turn_input="$(echo "$current_status" | jq -r '.context_window.current_usage.input_tokens // empty')"
+turn_cc="$(echo "$current_status" | jq -r '.context_window.current_usage.cache_creation_input_tokens // empty')"
+turn_cr="$(echo "$current_status" | jq -r '.context_window.current_usage.cache_read_input_tokens // empty')"
+turn_output="$(echo "$current_status" | jq -r '.context_window.current_usage.output_tokens // empty')"
+if [[ -n "$model_id" && -n "$turn_input" && -n "$turn_cc" && -n "$turn_cr" && -n "$turn_output" ]]; then
+    prices="$(model_prices "$model_id")"
+    if [[ -n "$prices" ]]; then
+        read -r price_in price_out <<< "$prices"
+        turncost_display=$(awk \
+            -v i="$turn_input" -v cc="$turn_cc" -v cr="$turn_cr" -v o="$turn_output" \
+            -v pi="$price_in" -v po="$price_out" -v p="$COST_PRECISION" \
+            'BEGIN { printf "%.*f", p, (i*pi + cc*pi*1.25 + cr*pi*0.1 + o*po) / 1000000 }')
+    fi
+fi
+
+# Cache hit ratio (last API call)
+cache_display=""
+cache_read=$(echo "$current_status" | jq -r '.context_window.current_usage.cache_read_input_tokens // empty')
+cache_creation=$(echo "$current_status" | jq -r '.context_window.current_usage.cache_creation_input_tokens // empty')
+cache_input=$(echo "$current_status" | jq -r '.context_window.current_usage.input_tokens // empty')
+if [[ -n "$cache_read" && -n "$cache_creation" && -n "$cache_input" ]]; then
+    cache_total=$(( cache_read + cache_creation + cache_input ))
+    if (( cache_total > 0 )); then
+        cache_pct=$(awk -v r="$cache_read" -v t="$cache_total" 'BEGIN { printf "%.2f", r * 100 / t }')
+        if awk -v p="$cache_pct" -v c="$CACHE_CRIT" 'BEGIN { exit !(p < c) }'; then
+            cache_display=$(printf "%s%s%%" "$CRIT_STR" "$cache_pct")
+        elif awk -v p="$cache_pct" -v w="$CACHE_WARN" 'BEGIN { exit !(p < w) }'; then
+            cache_display=$(printf "%s%s%%" "$WARN_STR" "$cache_pct")
+        else
+            cache_display=$(printf "%s%%" "$cache_pct")
+        fi
+    fi
 fi
 
 # Rate Limits
@@ -225,7 +298,8 @@ field_value() {
         git)             [[ -n "$git_info" ]]              && printf "%s" "$git_info";;
         model)           [[ -n "$model" ]]                 && printf "%s" "$model";;
         ctx)             [[ -n "$ctx_display" ]]           && printf "ctx: %s" "$ctx_display";;
-        cost)            [[ -n "$cost_display" ]]          && printf "\$%s" "$cost_display";;
+        sessioncost)     [[ -n "$cost_display" ]]          && printf "\$%s" "$cost_display";;
+        turncost)        [[ -n "$turncost_display" ]]      && printf "\$%s" "$turncost_display";;
         limits)          [[ -n "$ratelimit" ]]             && printf "lmt: %s" "$ratelimit";;
         session)         [[ -n "$session_name" ]]          && printf "%s" "$session_name";;
         session_id)      [[ -n "$session_id" ]]            && printf "%s" "$session_id";;
@@ -239,6 +313,7 @@ field_value() {
         changes)         [[ -n "$lines_changes" ]]         && printf "Δ%s" "$lines_changes";;
         added)           [[ -n "$lines_added" ]]           && printf "+%s" "$lines_added";;
         removed)         [[ -n "$lines_removed" ]]         && printf -- "-%s" "$lines_removed";;
+        cachehit)        [[ -n "$cache_display" ]]         && printf "c↑: %s" "$cache_display";;
         *) printf "statusline: unknown field: %s\n" "$1" >&2;;
     esac
 }

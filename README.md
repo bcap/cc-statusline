@@ -1,6 +1,6 @@
 # claude code statusline
 
-A custom statusline for [Claude Code](https://claude.com/claude-code). By default it shows your working directory, git branch, model, context usage, session cost, and rate-limit status on a single line. [More fields available](#available-fields), configurable via flags.
+A custom statusline for [Claude Code](https://claude.com/claude-code). By default it shows your working directory, git branch, model, context usage, total session cost, and rate-limit status on a single line. [More fields available](#available-fields), configurable via flags.
 
 Example:
 
@@ -60,7 +60,7 @@ After installing, you can pass flags to `statusline.sh` in your `~/.claude/setti
 
 | Flag | Default | Description |
 |---|---|---|
-| `--fields LIST` | `cwd,git,model,ctx,cost,limits` | Comma-list of fields; order = display order |
+| `--fields LIST` | `cwd,git,model,ctx,sessioncost,limits` | Comma-list of fields; order = display order |
 | `--separator STR` | ` \| ` | Separator between fields |
 | `--cost-precision N` | `3` | Decimal places for cost |
 | `--ctx-warn K` | `150` | Context warn threshold (k-tokens) |
@@ -69,6 +69,8 @@ After installing, you can pass flags to `statusline.sh` in your `~/.claude/setti
 | `--limits-5h-crit P` | `100` | 5-hour rate-limit critical % |
 | `--limits-week-warn P` | `75` | Weekly rate-limit warn % |
 | `--limits-week-crit P` | `100` | Weekly rate-limit critical % |
+| `--cache-warn P` | `80` | Cache hit ratio warn % (warn when below) |
+| `--cache-crit P` | `50` | Cache hit ratio critical % (crit when below) |
 | `--warn-str STR` | `⚠️` | Warn indicator prefix |
 | `--crit-str STR` | `🔥` | Critical indicator prefix |
 | `--debug PATH` | — | Append a trace of each invocation to PATH |
@@ -82,11 +84,13 @@ Default-on:
 - `git` — branch + change count, e.g. `main (3 changes)`
 - `model` — model display name, e.g. `Opus 4.7`
 - `ctx` — context usage %, k-tokens; warn/crit indicator over threshold
-- `cost` — session cost in USD
+- `sessioncost` — total session cost in USD
 - `limits` — 5h/weekly rate-limit %s + reset countdowns; warn/crit indicator over threshold
 
 Opt-in (add to `--fields`):
 
+- `turncost` — estimated USD cost of the last API call, computed from `current_usage` tokens and per-model pricing (5m cache write multiplier). Empty before the first API call, after `/compact`, or for unknown models.
+- `cachehit` — prompt cache hit ratio for the last API call, `cache_read / (cache_read + cache_creation + input)`. Warn/crit fire when **below** `--cache-warn` / `--cache-crit` (inverted direction; low is bad).
 - `session` — session name (or `UNNAMED`)
 - `session_id` — full session UUID
 - `effort` — effort level (e.g. `high`)
