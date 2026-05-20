@@ -43,6 +43,13 @@ python3 -m unittest test_statusline
 ./statusline.py --fields=cwd,git,ctx,session_cost --separator=' • ' < statusline_input_example.json
 ```
 
+## Versioning
+
+Releases are tagged with `vMAJOR.MINOR` (e.g. `v0.1`). Cut a new tag when the
+user-facing behavior changes — new/renamed flags, new/renamed fields,
+threshold default changes, or breaking changes to the install/upgrade
+contract. Pure refactors and doc-only changes don't need a tag.
+
 ## Install / iterate
 
 - Local dev install: `./install.sh --local`
