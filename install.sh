@@ -76,6 +76,17 @@ Nothing is written until any conflicts are shown and confirmed.
 
 EOF
 
+if [[ ! -r /dev/tty ]]; then
+    printf "install.sh: no TTY available for confirmation; aborting\n" >&2
+    exit 1
+fi
+read -r -p "Proceed with install? [y/N] " ans </dev/tty
+case "$ans" in
+    y|Y|yes|YES) ;;
+    *) printf "Aborted.\n" >&2; exit 1;;
+esac
+printf "\n" >&2
+
 src="$(mktemp)"
 trap 'rm -f "$src"' EXIT
 
