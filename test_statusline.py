@@ -134,6 +134,42 @@ class TestParseArgs(unittest.TestCase):
         with self.assertRaises(SystemExit):
             sl.parse_args(["--custom-field=bad-name={ctx_pct}"])
 
+    def test_unknown_field_in_fields_hard_fails(self):
+        with mock.patch("sys.stderr", new=io.StringIO()) as err:
+            with self.assertRaises(SystemExit) as cm:
+                sl.parse_args(["--fields=model,bogus"])
+            self.assertIn("unknown field in --fields: bogus", err.getvalue())
+        self.assertEqual(cm.exception.code, 2)
+
+    def test_undefined_custom_in_fields_hard_fails(self):
+        with mock.patch("sys.stderr", new=io.StringIO()) as err:
+            with self.assertRaises(SystemExit) as cm:
+                sl.parse_args(["--fields=custom:nope"])
+            self.assertIn("undefined custom field in --fields: nope",
+                          err.getvalue())
+        self.assertEqual(cm.exception.code, 2)
+
+    def test_custom_template_bad_syntax_hard_fails(self):
+        with mock.patch("sys.stderr", new=io.StringIO()) as err:
+            with self.assertRaises(SystemExit) as cm:
+                sl.parse_args(["--custom-field=x={unterminated"])
+            self.assertIn("invalid custom template", err.getvalue())
+        self.assertEqual(cm.exception.code, 2)
+
+    def test_custom_template_unknown_field_hard_fails(self):
+        with mock.patch("sys.stderr", new=io.StringIO()) as err:
+            with self.assertRaises(SystemExit) as cm:
+                sl.parse_args(["--custom-field=x={bogus}"])
+            self.assertIn("unknown field", err.getvalue())
+        self.assertEqual(cm.exception.code, 2)
+
+    def test_custom_template_attr_access_hard_fails(self):
+        with mock.patch("sys.stderr", new=io.StringIO()) as err:
+            with self.assertRaises(SystemExit) as cm:
+                sl.parse_args(["--custom-field=x={ctx_pct.__class__}"])
+            self.assertIn("invalid field reference", err.getvalue())
+        self.assertEqual(cm.exception.code, 2)
+
     def test_custom_field_name_may_match_builtin(self):
         # Custom fields live in their own namespace (referenced as custom:X
         # in --fields), so a name matching a built-in is allowed.
@@ -363,40 +399,45 @@ class TestRenderCustom(unittest.TestCase):
         v = values_for(s)
         self.assertEqual(sl.render_custom("t", "{ctx_pct} / {limit_5h_pct}", v), "")
 
-    def test_unknown_field_warns_and_returns_empty(self):
+    def test_unknown_field_hard_fails(self):
         v = values_for(SAMPLE)
         with mock.patch("sys.stderr", new=io.StringIO()) as err:
-            out = sl.render_custom("t", "{bogus}", v)
+            with self.assertRaises(SystemExit) as cm:
+                sl.render_custom("t", "{bogus}", v)
             self.assertIn("unknown field", err.getvalue())
-        self.assertEqual(out, "")
+        self.assertEqual(cm.exception.code, 2)
 
     def test_blocks_attribute_access(self):
         v = values_for(SAMPLE)
         with mock.patch("sys.stderr", new=io.StringIO()) as err:
-            out = sl.render_custom("t", "{ctx_pct.__class__}", v)
+            with self.assertRaises(SystemExit) as cm:
+                sl.render_custom("t", "{ctx_pct.__class__}", v)
             self.assertIn("invalid field reference", err.getvalue())
-        self.assertEqual(out, "")
+        self.assertEqual(cm.exception.code, 2)
 
     def test_blocks_indexing(self):
         v = values_for(SAMPLE)
         with mock.patch("sys.stderr", new=io.StringIO()) as err:
-            out = sl.render_custom("t", "{ctx_pct[0]}", v)
+            with self.assertRaises(SystemExit) as cm:
+                sl.render_custom("t", "{ctx_pct[0]}", v)
             self.assertIn("invalid field reference", err.getvalue())
-        self.assertEqual(out, "")
+        self.assertEqual(cm.exception.code, 2)
 
     def test_blocks_nested_braces_in_spec(self):
         v = values_for(SAMPLE)
         with mock.patch("sys.stderr", new=io.StringIO()) as err:
-            out = sl.render_custom("t", "{ctx_pct:{limit_5h_pct}}", v)
+            with self.assertRaises(SystemExit) as cm:
+                sl.render_custom("t", "{ctx_pct:{limit_5h_pct}}", v)
             self.assertIn("nested replacement", err.getvalue())
-        self.assertEqual(out, "")
+        self.assertEqual(cm.exception.code, 2)
 
     def test_invalid_template_syntax(self):
         v = values_for(SAMPLE)
         with mock.patch("sys.stderr", new=io.StringIO()) as err:
-            out = sl.render_custom("t", "{unterminated", v)
+            with self.assertRaises(SystemExit) as cm:
+                sl.render_custom("t", "{unterminated", v)
             self.assertIn("invalid custom template", err.getvalue())
-        self.assertEqual(out, "")
+        self.assertEqual(cm.exception.code, 2)
 
     def test_conversion_allowed(self):
         v = values_for(SAMPLE)
@@ -427,12 +468,13 @@ class TestRender(unittest.TestCase):
             sl.render({}, opts(), git_fn=_no_git)
         self.assertEqual(cm.exception.code, 1)
 
-    def test_unknown_field_warns_but_continues(self):
+    def test_unknown_field_hard_fails(self):
         with mock.patch("sys.stderr", new=io.StringIO()) as err:
-            out = sl.render(SAMPLE, opts(fields="model,bogus,session"),
-                            now=0, git_fn=_no_git)
+            with self.assertRaises(SystemExit) as cm:
+                sl.render(SAMPLE, opts(fields="model,bogus,session"),
+                          now=0, git_fn=_no_git)
             self.assertIn("unknown field: bogus", err.getvalue())
-        self.assertEqual(out, "Opus 4.7 | demo")
+        self.assertEqual(cm.exception.code, 2)
 
     def test_raw_field_in_render(self):
         out = sl.render(SAMPLE, opts(fields="ctx_pct,ctx_tokens_k"),
@@ -472,9 +514,10 @@ class TestRender(unittest.TestCase):
         o = opts(fields="custom:b")
         o["custom_fields"] = {"a": "{ctx_pct}", "b": "{a}"}
         with mock.patch("sys.stderr", new=io.StringIO()) as err:
-            out = sl.render(SAMPLE, o, now=0, git_fn=_no_git)
+            with self.assertRaises(SystemExit) as cm:
+                sl.render(SAMPLE, o, now=0, git_fn=_no_git)
             self.assertIn("unknown field", err.getvalue())
-        self.assertEqual(out, "")
+        self.assertEqual(cm.exception.code, 2)
 
     def test_custom_field_skipped_when_data_missing(self):
         s = {"workspace": {"project_dir": "/x"}}
@@ -483,12 +526,13 @@ class TestRender(unittest.TestCase):
         out = sl.render(s, o, now=0, git_fn=_no_git)
         self.assertEqual(out, "UNNAMED")
 
-    def test_undefined_custom_field(self):
+    def test_undefined_custom_field_hard_fails(self):
         o = opts(fields="model,custom:missing")
         with mock.patch("sys.stderr", new=io.StringIO()) as err:
-            out = sl.render(SAMPLE, o, now=0, git_fn=_no_git)
+            with self.assertRaises(SystemExit) as cm:
+                sl.render(SAMPLE, o, now=0, git_fn=_no_git)
             self.assertIn("undefined custom field: missing", err.getvalue())
-        self.assertEqual(out, "Opus 4.7")
+        self.assertEqual(cm.exception.code, 2)
 
 
 class TestGitInfo(unittest.TestCase):

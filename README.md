@@ -77,40 +77,24 @@ After installing, you can pass flags to `statusline.py` in your `~/.claude/setti
 
 ### Available fields
 
-All fields live in a single namespace. The grouping below is just for readability — anything listed here can go directly into `--fields` or be referenced inside a `--custom-field` template.
+Any field below can be used directly in `--fields` or referenced inside a `--custom-field` template. Fields shown with a `str` type are pre-formatted (label prefix + warning indicator + value — what shows in the default statusline); the rest are typed values useful in custom templates or as standalone fields without decoration. Multiple fields cover the same underlying data at different formatting levels (e.g. `ctx` / `ctx_pct` / `ctx_tokens_k`).
 
-Composite fields are pre-formatted with labels and warning prefixes (what shows in the default statusline). Raw fields expose the underlying typed values for use in custom templates or as standalone fields without decoration.
+Grouped by topic below for readability — there is no categorical distinction, all entries are just fields.
 
-#### Composite
-
-- `cwd` — current working directory (`$HOME` shown as `~`)
-- `git` — branch + change count, e.g. `main (3 changes)`
-- `model` — model display name, e.g. `Opus 4.7`
-- `ctx` — context usage %, k-tokens; warn/crit indicator over threshold
-- `session_cost` — total session cost in USD
-- `turn_cost` — estimated USD cost of the last API call, computed from `current_usage` tokens and per-model pricing (5m cache write multiplier). Empty before the first API call, after `/compact`, or for unknown models.
-- `limits` — 5h/weekly rate-limit %s + reset countdowns; warn/crit indicator over threshold
-- `cache_hit` — prompt cache hit ratio for the last API call, `cache_read / (cache_read + cache_creation + input)`. Warn/crit fire when **below** `--cache-warn` / `--cache-crit` (inverted direction; low is bad).
-- `session` — session name (or `UNNAMED`)
-- `session_id` — full session UUID
-- `effort` — effort level (e.g. `high`)
-- `version` — Claude Code version
-- `agent` — active subagent name, prefixed with `@`
-- `worktree` — worktree name, prefixed with `wt:`
-- `transcript_path` — path to the session transcript JSONL
-- `api_duration` — total API time this session
-- `duration` — total wall-clock time this session
-- `changes` — total lines added + removed, prefixed with `Δ`
-- `added` — total lines added, prefixed with `+`
-- `removed` — total lines removed, prefixed with `-`
-
-#### Raw
+**Context window**
 
 | Name | Type | Description |
 |---|---|---|
+| `ctx` | str | e.g. `ctx: ~80k (8%)`; warn/crit indicator over threshold |
 | `ctx_pct` | float | context usage % |
 | `ctx_tokens_k` | int | context usage in k-tokens |
 | `ctx_warning` | str | warn/crit indicator for ctx (empty when under thresholds) |
+
+**Rate limits**
+
+| Name | Type | Description |
+|---|---|---|
+| `limits` | str | e.g. `lmt: 6%/10% (16m:40s/1h:23m)`; warn/crit indicator over threshold |
 | `limit_5h_pct` | float | 5h rate-limit usage % |
 | `limit_week_pct` | float | weekly rate-limit usage % |
 | `limit_5h_reset_sec` | int | seconds until 5h limit resets |
@@ -119,19 +103,62 @@ Composite fields are pre-formatted with labels and warning prefixes (what shows 
 | `limit_week_reset` | str | weekly reset countdown (human) |
 | `limit_5h_warning` | str | warn/crit indicator for 5h limit |
 | `limit_week_warning` | str | warn/crit indicator for weekly limit |
+
+**Cost**
+
+| Name | Type | Description |
+|---|---|---|
+| `session_cost` | str | total session cost in USD, e.g. `$6.761` |
+| `turn_cost` | str | estimated USD cost of the last API call (per-model pricing with 5m cache-write multiplier). Empty before the first API call, after `/compact`, or for unknown models. |
 | `session_cost_usd` | float | total session cost in USD (raw) |
 | `turn_cost_usd` | float | last API call cost in USD (raw) |
+
+**Cache**
+
+| Name | Type | Description |
+|---|---|---|
+| `cache_hit` | str | prompt cache hit ratio for the last API call, `cache_read / (cache_read + cache_creation + input)`. Warn/crit when **below** `--cache-warn` / `--cache-crit` (inverted: low is bad). |
 | `cache_hit_pct` | float | prompt cache hit ratio % |
 | `cache_hit_warning` | str | warn/crit indicator for cache (inverted) |
+
+**Lines changed**
+
+| Name | Type | Description |
+|---|---|---|
+| `changes` | str | total lines added + removed, prefixed with `Δ` |
+| `added` | str | total lines added, prefixed with `+` |
+| `removed` | str | total lines removed, prefixed with `-` |
 | `lines_added` | int | total lines added this session |
 | `lines_removed` | int | total lines removed this session |
 | `lines_changed` | int | `lines_added + lines_removed` |
-| `git_branch` | str | current git branch |
+
+**Git**
+
+| Name | Type | Description |
+|---|---|---|
+| `git` | str | branch + change count, e.g. `main (3 changes)` |
+| `git_branch` | str | current git branch (bare) |
 | `git_changes` | int | count of uncommitted changes |
+
+**Session / misc**
+
+| Name | Type | Description |
+|---|---|---|
+| `cwd` | str | current working directory (`$HOME` shown as `~`) |
+| `model` | str | model display name, e.g. `Opus 4.7` |
+| `session` | str | session name (or `UNNAMED`) |
+| `session_id` | str | full session UUID |
+| `effort` | str | effort level (e.g. `high`) |
+| `version` | str | Claude Code version, e.g. `v2.1.139` |
+| `agent` | str | active subagent name, prefixed with `@` |
+| `worktree` | str | worktree name, prefixed with `wt:` |
+| `transcript_path` | str | path to the session transcript JSONL |
+| `api_duration` | str | total API time this session (human duration) |
+| `duration` | str | total wall-clock time this session (human duration) |
 
 ### Custom fields
 
-Define a field with `--custom-field NAME=TEMPLATE` and reference it in `--fields` as `custom:NAME`. The template uses Python [format string syntax](https://docs.python.org/3/library/string.html#format-string-syntax) and can reference any **built-in** field (raw or composite) by name:
+Define a field with `--custom-field NAME=TEMPLATE` and reference it in `--fields` as `custom:NAME`. The template uses Python [format string syntax](https://docs.python.org/3/library/string.html#format-string-syntax) and can reference any built-in field by name:
 
 ```json
 {
@@ -146,11 +173,13 @@ Define a field with `--custom-field NAME=TEMPLATE` and reference it in `--fields
 
 **Namespaces.** Custom field names live in their own namespace and may share a name with a built-in — they only collide if used the same way. In `--fields`, a bare name (`model`) always means the built-in; `custom:model` is the custom. Inside a template, `{model}` always means the built-in. So `--custom-field='model=model: {model}'` is fine — the template references the built-in `model`, no self-reference.
 
-**Skip rules.** If *any* referenced field is currently unavailable (e.g. limits before the first API call), the whole custom field is skipped — including its separator — so you never see partial garbage like `5h:  % (resets in )`. "Unavailable" means `None` for raw fields and empty string for composites.
+**Skip rules.** If *any* referenced field is currently unavailable (e.g. limits before the first API call), the whole custom field is skipped — including its separator — so you never see partial garbage like `5h:  % (resets in )`.
 
-**No custom-to-custom references.** A template can only reference built-in fields. If you need composition across customs, express it inline (the template literal already lets you combine multiple primitives), or wrap the statusline command in a shell pipeline.
+**No custom-to-custom references.** A template can only reference built-in fields. If you need composition across customs, express it inline (the template literal already lets you combine multiple fields), or wrap the statusline command in a shell pipeline.
 
-**Safety.** Templates are restricted to literal text + `{name}` or `{name:format_spec}` or `{name!conversion}` (where conversion is `s`/`r`/`a`). Attribute access (`{x.__class__}`), indexing (`{x[0]}`), and nested replacement fields (`{x:{y}}`) are rejected with a stderr warning — this is enforced because the template is read from your settings and is not a place where you'd want arbitrary attribute traversal.
+**Safety.** Templates are restricted to literal text + `{name}` or `{name:format_spec}` or `{name!conversion}` (where conversion is `s`/`r`/`a`). Attribute access (`{x.__class__}`), indexing (`{x[0]}`), and nested replacement fields (`{x:{y}}`) are rejected — this is enforced because the template is read from your settings and is not a place where you'd want arbitrary attribute traversal.
+
+**Strict validation.** Argument errors hard-fail at startup (exit 2, message to stderr): unknown names in `--fields`, references to undefined `custom:NAME`, template syntax errors, and unknown field names referenced inside a template.
 
 ## Troubleshooting
 

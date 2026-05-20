@@ -172,6 +172,41 @@ referenced field is unavailable, so partial output never appears.
 """.format(**DEFAULTS)
 
 
+def _die(msg: str) -> None:
+    """Write a statusline error to stderr and exit with code 2."""
+    sys.stderr.write(f"statusline: {msg}\n")
+    sys.exit(2)
+
+
+def _builtin_field_names() -> set:
+    return set(RAW_FIELDS) | set(COMPOSITE_FIELDS)
+
+
+def _validate_custom_template(name: str, template: str, known: set) -> None:
+    """Parse-time validation for a custom-field template. Hard fails on error."""
+    parsed = _parse_template(name, template)
+    if parsed is None:
+        sys.exit(2)
+    for _literal, field, _spec, _conv in parsed:
+        if field is None:
+            continue
+        if field not in known:
+            _die(f"unknown field {field!r} in custom {name!r}")
+
+
+def _validate_fields(fields: str, customs: Dict[str, str], known: set) -> None:
+    """Validate every --fields token. Hard fails on unknown name or undefined custom."""
+    for f in (x.strip() for x in fields.split(",")):
+        if not f:
+            continue
+        if f.startswith("custom:"):
+            cname = f[len("custom:"):]
+            if cname not in customs:
+                _die(f"undefined custom field in --fields: {cname}")
+        elif f not in known:
+            _die(f"unknown field in --fields: {f}")
+
+
 def parse_args(argv: List[str]) -> Dict[str, Any]:
     opts: Dict[str, Any] = dict(DEFAULTS)
     opts["custom_fields"] = {}
@@ -225,6 +260,10 @@ def parse_args(argv: List[str]) -> Dict[str, Any]:
         sys.stderr.write(f"statusline: unknown flag: {a}\n")
         sys.stderr.write(USAGE)
         sys.exit(2)
+    known = _builtin_field_names()
+    for cname, template in opts["custom_fields"].items():
+        _validate_custom_template(cname, template, known)
+    _validate_fields(opts["fields"], opts["custom_fields"], known)
     return opts
 
 
@@ -512,15 +551,13 @@ def render_custom(name: str, template: str, values: Dict[str, Any]) -> str:
     """
     parsed = _parse_template(name, template)
     if parsed is None:
-        return ""
+        sys.exit(2)
     refs: List[str] = []
     for _literal, field, _spec, _conv in parsed:
         if field is None:
             continue
         if field not in values:
-            sys.stderr.write(
-                f"statusline: unknown field {field!r} in custom {name!r}\n")
-            return ""
+            _die(f"unknown field {field!r} in custom {name!r}")
         refs.append(field)
 
     # Skip whole field if any referenced value is unavailable (None or "").
@@ -545,9 +582,7 @@ def render_custom(name: str, template: str, values: Dict[str, Any]) -> str:
         try:
             out.append(format(v, spec or ""))
         except (ValueError, TypeError) as e:
-            sys.stderr.write(
-                f"statusline: format error for {field!r} in custom {name!r}: {e}\n")
-            return ""
+            _die(f"format error for {field!r} in custom {name!r}: {e}")
     return "".join(out)
 
 
@@ -573,15 +608,13 @@ def render(status: Dict[str, Any], opts: Dict[str, Any],
         if f.startswith("custom:"):
             cname = f[len("custom:"):]
             if cname not in customs:
-                sys.stderr.write(f"statusline: undefined custom field: {cname}\n")
-                continue
+                _die(f"undefined custom field: {cname}")
             v = render_custom(cname, customs[cname], values)
         elif f in values:
             raw_v = values[f]
             v = "" if raw_v is None else str(raw_v)
         else:
-            sys.stderr.write(f"statusline: unknown field: {f}\n")
-            continue
+            _die(f"unknown field: {f}")
         if v:
             parts.append(v)
     return opts["separator"].join(parts)
