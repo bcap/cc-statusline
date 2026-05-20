@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
 #
-# Installs statusline.sh and wires it into ~/.claude/settings.json.
+# Installs statusline.py and wires it into ~/.claude/settings.json.
 #
-# By default, downloads the latest statusline.sh from github.com/bcap/cc-statusline.
-# With --local, copies the statusline.sh sitting next to this script.
+# By default, downloads the latest statusline.py from github.com/bcap/cc-statusline.
+# With --local, copies the statusline.py sitting next to this script.
 
 set -euo pipefail
 
-STATUSLINE_RAW_URL="https://raw.githubusercontent.com/bcap/cc-statusline/main/statusline.sh"
+STATUSLINE_RAW_URL="https://raw.githubusercontent.com/bcap/cc-statusline/main/statusline.py"
 
 usage() {
     cat <<EOF
 Usage: install.sh [--local] [--path PATH]
 
 Flags:
-  --local        copy the statusline.sh sitting next to this script instead
+  --local        copy the statusline.py sitting next to this script instead
                  of downloading the latest version from the canonical repo
-  --path PATH    install destination [~/.claude/statusline.sh]
+  --path PATH    install destination [~/.claude/statusline.py]
   -h, --help     show this help and exit
 
 Behavior:
@@ -29,8 +29,8 @@ EOF
 }
 
 use_local=0
-dest="$HOME/.claude/statusline.sh"
-dest_display='~/.claude/statusline.sh'
+dest="$HOME/.claude/statusline.py"
+dest_display='~/.claude/statusline.py'
 dest_specified=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -58,6 +58,7 @@ if [[ $dest_specified -eq 1 ]]; then
 fi
 
 command -v jq >/dev/null || { printf "install.sh: jq not found\n" >&2; exit 1; }
+command -v python3 >/dev/null || { printf "install.sh: python3 not found\n" >&2; exit 1; }
 if [[ $use_local -eq 0 ]]; then
     command -v curl >/dev/null || { printf "install.sh: curl not found\n" >&2; exit 1; }
 fi
@@ -78,9 +79,9 @@ trap 'rm -f "$src"' EXIT
 
 if [[ $use_local -eq 1 ]]; then
     self_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
-    local_src="$self_dir/statusline.sh"
+    local_src="$self_dir/statusline.py"
     if [[ ! -e "$local_src" ]]; then
-        printf "install.sh: --local: no statusline.sh next to %s\n" "${BASH_SOURCE[0]}" >&2
+        printf "install.sh: --local: no statusline.py next to %s\n" "${BASH_SOURCE[0]}" >&2
         exit 1
     fi
     cp "$local_src" "$src"
@@ -93,8 +94,8 @@ else
 fi
 
 first="$(head -n1 "$src")"
-if [[ "$first" != "#!"*bash* ]]; then
-    printf "install.sh: source does not look like a bash script\n" >&2
+if [[ "$first" != "#!"*python* ]]; then
+    printf "install.sh: source does not look like a python script\n" >&2
     exit 1
 fi
 

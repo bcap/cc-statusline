@@ -22,9 +22,8 @@ DEFAULTS = {
     "fields": "cwd,git,model,ctx,sessioncost,limits",
     "separator": " | ",
     "cost_precision": 3,
-    "warn_str": "⚠️",  # warning sign
-    "crit_str": "\U0001f525",   # fire
-    "debug": "",
+    "warn_str": "⚠️",
+    "crit_str": "🔥",
 }
 
 # Per-model pricing in USD per million tokens (input, output).
@@ -57,7 +56,6 @@ FLAG_SPEC = {
     "--cost-precision": ("cost_precision", int),
     "--warn-str": ("warn_str", str),
     "--crit-str": ("crit_str", str),
-    "--debug": ("debug", str),
 }
 
 
@@ -78,17 +76,41 @@ Flags (defaults in []):
   --cache-warn P        cache hit ratio warn % (warn when below) [{cache_warn}]
   --cache-crit P        cache hit ratio critical % (crit when below) [{cache_crit}]
   --fields LIST         comma-list; order = display order [{fields}]
-  --separator STR       field separator [{separator!r}]
+                        see FIELDS section below for valid names
+  --separator STR       field separator [{separator}]
   --cost-precision N    cost decimal places [{cost_precision}]
-  --warn-str STR        warn indicator
-  --crit-str STR        critical indicator
-  --debug PATH          append a trace of this execution to PATH
+  --warn-str STR        warn indicator [{warn_str}]
+  --crit-str STR        critical indicator [{crit_str}]
   -h, --help            show this help and exit
 
 FIELDS:
-  cwd, git, model, ctx, sessioncost, turncost, limits, session, session_id,
-  effort, version, agent, worktree, transcript_path, api_duration, duration,
-  changes, added, removed, cachehit
+  cwd              current working directory ($HOME shown as ~)
+  git              git branch + change count, e.g. "main (3 changes)"
+  model            model display name, e.g. "Opus 4.7"
+  ctx              context window usage %, k-tokens; warn/crit indicator
+                   when over --ctx-warn / --ctx-crit thresholds
+  sessioncost      total session cost in USD, e.g. "$0.123"
+  turncost         estimated cost in USD of the last API call, computed from
+                   current_usage tokens and per-model pricing. Empty before the
+                   first API call, after /compact, or for unknown models.
+  limits           5h/weekly rate-limit %s + reset countdowns; warn/crit
+                   indicator when over --limits-*-warn / --limits-*-crit
+  session          session name (or "UNNAMED")
+  session_id       full session UUID
+  effort           effort level (e.g. "high")
+  version          Claude Code version, e.g. "v1.2.3"
+  agent            active subagent name, prefixed with "@"
+  worktree         worktree name, prefixed with "wt:"
+  transcript_path  path to the session transcript JSONL
+  api_duration     total API time this session (human duration)
+  duration         total wall-clock time this session (human duration)
+  changes          total lines added + removed, prefixed with "Δ"
+  added            total lines added, prefixed with "+"
+  removed          total lines removed, prefixed with "-"
+  cachehit         prompt cache hit ratio for the last API call, computed as
+                   cache_read / (cache_read + cache_creation + input). Warn/crit
+                   indicator when below --cache-warn / --cache-crit (inverted:
+                   low is bad). Empty before the first API call and after /compact.
 """.format(**DEFAULTS)
 
 
@@ -348,28 +370,10 @@ def render(status: dict, opts: dict, now: Optional[int] = None,
     return opts["separator"].join(parts)
 
 
-def debug_reexec(opts: dict, argv: List[str]) -> None:
-    path = opts["debug"]
-    if not path or os.environ.get("STATUSLINE_DEBUG_REENTRY"):
-        return
-    with open(path, "a") as f:
-        f.write("\n=============================\n")
-        f.write(f"==== {time.strftime('%Y-%m-%d %H:%M:%S')} ====\n")
-        f.write("=============================\n")
-    env = dict(os.environ, STATUSLINE_DEBUG_REENTRY="1")
-    fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
-    os.dup2(fd, 2)
-    os.close(fd)
-    # Re-exec under python tracing
-    os.execvpe(sys.executable, [sys.executable, "-v", __file__] + argv, env)
-
-
 def main(argv: Optional[List[str]] = None) -> int:
     if argv is None:
         argv = sys.argv[1:]
     opts = parse_args(argv)
-    if opts["debug"]:
-        debug_reexec(opts, argv)
     raw = sys.stdin.read()
     try:
         status = json.loads(raw)

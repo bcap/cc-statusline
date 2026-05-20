@@ -10,8 +10,8 @@ Example:
 
 ## Requirements
 
-- `bash`, `jq`, `git`, `awk`, `date` (standard on Linux/macOS)
-- `curl` (only for the default remote install)
+- `python3` (3.8+) and `git` (standard on Linux/macOS)
+- `bash`, `jq`, `curl` (only used by `install.sh`)
 
 ## Install
 
@@ -31,26 +31,26 @@ cd cc-statusline
 
 The installer:
 
-- Writes `statusline.sh` to `~/.claude/statusline.sh` (override with `--path`)
+- Writes `statusline.py` to `~/.claude/statusline.py` (override with `--path`)
 - Adds a `statusLine` block to `~/.claude/settings.json`
-- Refuses to overwrite an existing different `statusline.sh`; shows a diff and prompts before changing an existing `statusLine` block
+- Refuses to overwrite an existing different `statusline.py`; shows a diff and prompts before changing an existing `statusLine` block
 - Is safe to re-run: identical content is a no-op
 
 Once installed, your statusline should update on the next refresh. If it doesn't, restart Claude Code.
 
 ## Uninstall
 
-Remove `~/.claude/statusline.sh` and delete the `statusLine` key from `~/.claude/settings.json`.
+Remove `~/.claude/statusline.py` and delete the `statusLine` key from `~/.claude/settings.json`.
 
 ## Configuration
 
-After installing, you can pass flags to `statusline.sh` in your `~/.claude/settings.json`:
+After installing, you can pass flags to `statusline.py` in your `~/.claude/settings.json`. Flags accept both `--key value` and `--key=value` forms.
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "~/.claude/statusline.sh --fields cwd,git,model,ctx,cost --separator ' • '",
+    "command": "~/.claude/statusline.py --fields=cwd,git,model,ctx,sessioncost --separator=' • '",
     "refreshInterval": 5
   }
 }
@@ -73,7 +73,6 @@ After installing, you can pass flags to `statusline.sh` in your `~/.claude/setti
 | `--cache-crit P` | `50` | Cache hit ratio critical % (crit when below) |
 | `--warn-str STR` | `⚠️` | Warn indicator prefix |
 | `--crit-str STR` | `🔥` | Critical indicator prefix |
-| `--debug PATH` | — | Append a trace of each invocation to PATH |
 | `-h`, `--help` | — | Show help |
 
 ### Available fields
@@ -110,10 +109,10 @@ If the statusline doesn't appear or looks wrong:
 
 1. Run it against the example payload:
    ```bash
-   ./statusline.sh < statusline_input_example.json
+   ./statusline.py < statusline_input_example.json
    ```
-2. Enable tracing by adding `--debug /tmp/statusline.log` to the `command` in `settings.json`, then `tail -f /tmp/statusline.log`.
-3. Confirm `jq` is installed and on `PATH`.
+2. Run the test suite: `python3 -m unittest test_statusline`
+3. Confirm `python3` is installed and on `PATH`.
 
 ## License
 
