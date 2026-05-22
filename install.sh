@@ -24,8 +24,11 @@ Flags:
 Behavior:
   - If the destination file exists and differs from the source, aborts with
     a diff (no overwrite). Identical content is a no-op.
-  - If ~/.claude/settings.json already has a .statusLine block that would
-    change, prints a diff and prompts before writing.
+  - If ~/.claude/settings.json already has a .statusLine pointing at the
+    destination script (an upgrade), preserves the existing block — your
+    flags/refreshInterval are kept.
+  - If .statusLine points at a different command, prints a diff and prompts
+    before overwriting.
   - Nothing is written to disk until the prompt is accepted.
 EOF
 }
@@ -152,7 +155,24 @@ else
     old_json='{}'
 fi
 
-proposed="$(printf '%s' "$old_json" | jq --argjson new "$new_block" '.statusLine = $new')"
+existing_cmd="$(printf '%s' "$old_json" | jq -r '.statusLine.command // ""')"
+points_at_us=0
+if [[ -n "$existing_cmd" ]]; then
+    for p in "$dest_display" "$dest"; do
+        if [[ "$existing_cmd" == "$p" || "$existing_cmd" == "$p "* ]]; then
+            points_at_us=1
+            break
+        fi
+    done
+fi
+
+if [[ $points_at_us -eq 1 ]]; then
+    # Upgrade path: existing statusLine already points at our script (possibly
+    # with user-customized args). Preserve the user's block as-is.
+    proposed="$old_json"
+else
+    proposed="$(printf '%s' "$old_json" | jq --argjson new "$new_block" '.statusLine = $new')"
+fi
 
 old_norm="$(printf '%s' "$old_json" | jq -S .)"
 proposed_norm="$(printf '%s' "$proposed" | jq -S .)"
