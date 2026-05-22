@@ -138,7 +138,7 @@ Grouped by topic below for readability — there is no categorical distinction, 
 | `turn_tokens_in` | str | last API call input tokens (human), e.g. `↑1` |
 | `turn_tokens_out` | str | last API call output tokens (human), e.g. `↓1.7k` |
 | `turn_cache_write` | str | last API call cache-creation tokens, e.g. `✎ 675` |
-| `turn_cache_read` | str | last API call cache-read tokens, e.g. `👁 78.6k` |
+| `turn_cache_read` | str | last API call cache-read tokens, e.g. `🗄️ 78.6k` |
 | `session_input_tokens` | int | session total input tokens (raw) |
 | `session_output_tokens` | int | session total output tokens (raw) |
 | `turn_input_tokens` | int | last API call input tokens (raw) |

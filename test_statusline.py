@@ -417,7 +417,7 @@ class TestTokenFields(unittest.TestCase):
         self.assertEqual(cv("turn_tokens_in"), "↑1")
         self.assertEqual(cv("turn_tokens_out"), "↓1.7k")
         self.assertEqual(cv("turn_cache_write"), "✎ 675")
-        self.assertEqual(cv("turn_cache_read"), "👁 78.6k")
+        self.assertEqual(cv("turn_cache_read"), "🗄️ 78.6k")
 
     def test_composites_empty_when_missing(self):
         s = {"workspace": {"project_dir": "/x"}}
