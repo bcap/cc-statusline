@@ -27,6 +27,8 @@ SAMPLE = {
     },
     "context_window": {
         "context_window_size": 1000000,
+        "total_input_tokens": 79321,
+        "total_output_tokens": 1667,
         "current_usage": {
             "input_tokens": 1,
             "output_tokens": 1667,
@@ -369,6 +371,61 @@ class TestComposites(unittest.TestCase):
         s = {"workspace": {"project_dir": "/x"}}
         r = raw_for(s)
         self.assertEqual(sl.composite_value("session", s, opts(), r), "UNNAMED")
+
+
+class TestHumanTokens(unittest.TestCase):
+    def test_under_1k(self):
+        self.assertEqual(sl.human_tokens(0), "0")
+        self.assertEqual(sl.human_tokens(675), "675")
+        self.assertEqual(sl.human_tokens(999), "999")
+
+    def test_k(self):
+        self.assertEqual(sl.human_tokens(1000), "1.0k")
+        self.assertEqual(sl.human_tokens(79321), "79.3k")
+        self.assertEqual(sl.human_tokens(999_999), "1000.0k")
+
+    def test_m(self):
+        self.assertEqual(sl.human_tokens(1_000_000), "1.0M")
+        self.assertEqual(sl.human_tokens(2_500_000), "2.5M")
+
+
+class TestTokenFields(unittest.TestCase):
+    def test_raw_session(self):
+        r = raw_for(SAMPLE)
+        self.assertEqual(r["session_input_tokens"], 79321)
+        self.assertEqual(r["session_output_tokens"], 1667)
+
+    def test_raw_turn(self):
+        r = raw_for(SAMPLE)
+        self.assertEqual(r["turn_input_tokens"], 1)
+        self.assertEqual(r["turn_output_tokens"], 1667)
+        self.assertEqual(r["turn_cache_creation_tokens"], 675)
+        self.assertEqual(r["turn_cache_read_tokens"], 78645)
+
+    def test_raw_missing(self):
+        r = raw_for({"workspace": {"project_dir": "/x"}})
+        for k in ("session_input_tokens", "session_output_tokens",
+                  "turn_input_tokens", "turn_output_tokens",
+                  "turn_cache_creation_tokens", "turn_cache_read_tokens"):
+            self.assertIsNone(r[k])
+
+    def test_composites(self):
+        r = raw_for(SAMPLE)
+        cv = lambda n: sl.composite_value(n, SAMPLE, opts(), r)
+        self.assertEqual(cv("session_tokens_in"), "↑79.3k")
+        self.assertEqual(cv("session_tokens_out"), "↓1.7k")
+        self.assertEqual(cv("turn_tokens_in"), "↑1")
+        self.assertEqual(cv("turn_tokens_out"), "↓1.7k")
+        self.assertEqual(cv("turn_cache_write"), "✎ 675")
+        self.assertEqual(cv("turn_cache_read"), "👁 78.6k")
+
+    def test_composites_empty_when_missing(self):
+        s = {"workspace": {"project_dir": "/x"}}
+        r = raw_for(s)
+        for n in ("session_tokens_in", "session_tokens_out",
+                  "turn_tokens_in", "turn_tokens_out",
+                  "turn_cache_write", "turn_cache_read"):
+            self.assertEqual(sl.composite_value(n, s, opts(), r), "")
 
 
 class TestRenderCustom(unittest.TestCase):

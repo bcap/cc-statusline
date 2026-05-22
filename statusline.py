@@ -55,6 +55,9 @@ COMPOSITE_FIELDS: Tuple[str, ...] = (
     "cache_hit", "session", "session_id", "effort", "version", "agent",
     "worktree", "transcript_path", "api_duration", "duration",
     "changes", "added", "removed",
+    "session_tokens_in", "session_tokens_out",
+    "turn_tokens_in", "turn_tokens_out",
+    "turn_cache_write", "turn_cache_read",
 )
 RAW_FIELDS: Tuple[str, ...] = (
     "ctx_pct", "ctx_tokens_k", "ctx_warning",
@@ -66,6 +69,9 @@ RAW_FIELDS: Tuple[str, ...] = (
     "cache_hit_pct", "cache_hit_warning",
     "lines_added", "lines_removed", "lines_changed",
     "git_branch", "git_changes",
+    "session_input_tokens", "session_output_tokens",
+    "turn_input_tokens", "turn_output_tokens",
+    "turn_cache_creation_tokens", "turn_cache_read_tokens",
 )
 FLAG_SPEC: Dict[str, Tuple[str, Callable[[str], Any]]] = {
     "--ctx-warn": ("ctx_warn", float),
@@ -143,6 +149,12 @@ FIELDS:
     changes          total lines added + removed, prefixed with "Δ"
     added            total lines added, prefixed with "+"
     removed          total lines removed, prefixed with "-"
+    session_tokens_in   session input tokens (human), e.g. "↑79.3k"
+    session_tokens_out  session output tokens (human), e.g. "↓1.7k"
+    turn_tokens_in   last API call input tokens (human), e.g. "↑1"
+    turn_tokens_out  last API call output tokens (human), e.g. "↓1.7k"
+    turn_cache_write last API call cache-creation tokens, e.g. "✎ 675"
+    turn_cache_read  last API call cache-read tokens, e.g. "👁 78.6k"
 
   Raw (typed values, useful inside --custom-field templates or standalone):
     ctx_pct (float)          context usage %
@@ -165,6 +177,12 @@ FIELDS:
     lines_changed (int)      lines_added + lines_removed
     git_branch (str)         current git branch
     git_changes (int)        count of uncommitted changes
+    session_input_tokens (int)       session total input tokens
+    session_output_tokens (int)      session total output tokens
+    turn_input_tokens (int)          last API call input tokens
+    turn_output_tokens (int)         last API call output tokens
+    turn_cache_creation_tokens (int) last API call cache-creation tokens
+    turn_cache_read_tokens (int)     last API call cache-read tokens
 
 A field whose value is unavailable renders empty when used standalone in
 --fields. A custom field is skipped entirely (including its separator) if any
@@ -275,6 +293,15 @@ def dig(d: Any, *keys: str) -> Any:
             return None
         cur = cur[k]
     return cur
+
+
+def human_tokens(n: int) -> str:
+    """Format a token count compactly: 1234 / 1.2k / 1.2M."""
+    if n < 1000:
+        return str(n)
+    if n < 1_000_000:
+        return f"{n/1000:.1f}k"
+    return f"{n/1_000_000:.1f}M"
 
 
 def human_duration(seconds: int) -> str:
@@ -388,6 +415,25 @@ def compute_raw(status: Dict[str, Any], opts: Dict[str, Any],
             p["cache_hit_warning"] = _warn_token(pct, opts["cache_warn"],
                                                   opts["cache_crit"], opts,
                                                   inverted=True)
+
+    sin = dig(status, "context_window", "total_input_tokens")
+    sout = dig(status, "context_window", "total_output_tokens")
+    if sin is not None:
+        p["session_input_tokens"] = int(sin)
+    if sout is not None:
+        p["session_output_tokens"] = int(sout)
+    tin = cu.get("input_tokens")
+    tout = cu.get("output_tokens")
+    tcc = cu.get("cache_creation_input_tokens")
+    tcr = cu.get("cache_read_input_tokens")
+    if tin is not None:
+        p["turn_input_tokens"] = int(tin)
+    if tout is not None:
+        p["turn_output_tokens"] = int(tout)
+    if tcc is not None:
+        p["turn_cache_creation_tokens"] = int(tcc)
+    if tcr is not None:
+        p["turn_cache_read_tokens"] = int(tcr)
 
     a = dig(status, "cost", "total_lines_added")
     r = dig(status, "cost", "total_lines_removed")
@@ -505,6 +551,24 @@ def composite_value(name: str, status: Dict[str, Any], opts: Dict[str, Any],
     if name == "removed":
         v = raw["lines_removed"]
         return f"-{v}" if v is not None else ""
+    if name == "session_tokens_in":
+        v = raw["session_input_tokens"]
+        return f"↑{human_tokens(v)}" if v is not None else ""
+    if name == "session_tokens_out":
+        v = raw["session_output_tokens"]
+        return f"↓{human_tokens(v)}" if v is not None else ""
+    if name == "turn_tokens_in":
+        v = raw["turn_input_tokens"]
+        return f"↑{human_tokens(v)}" if v is not None else ""
+    if name == "turn_tokens_out":
+        v = raw["turn_output_tokens"]
+        return f"↓{human_tokens(v)}" if v is not None else ""
+    if name == "turn_cache_write":
+        v = raw["turn_cache_creation_tokens"]
+        return f"✎ {human_tokens(v)}" if v is not None else ""
+    if name == "turn_cache_read":
+        v = raw["turn_cache_read_tokens"]
+        return f"👁 {human_tokens(v)}" if v is not None else ""
     raise KeyError(name)
 
 

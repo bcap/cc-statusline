@@ -129,6 +129,23 @@ Grouped by topic below for readability — there is no categorical distinction, 
 | `cache_hit_pct` | float | prompt cache hit ratio % |
 | `cache_hit_warning` | str | warn/crit indicator for cache (inverted) |
 
+**Tokens**
+
+| Name | Type | Description |
+|---|---|---|
+| `session_tokens_in` | str | session input tokens (human), e.g. `↑79.3k` |
+| `session_tokens_out` | str | session output tokens (human), e.g. `↓1.7k` |
+| `turn_tokens_in` | str | last API call input tokens (human), e.g. `↑1` |
+| `turn_tokens_out` | str | last API call output tokens (human), e.g. `↓1.7k` |
+| `turn_cache_write` | str | last API call cache-creation tokens, e.g. `✎ 675` |
+| `turn_cache_read` | str | last API call cache-read tokens, e.g. `👁 78.6k` |
+| `session_input_tokens` | int | session total input tokens (raw) |
+| `session_output_tokens` | int | session total output tokens (raw) |
+| `turn_input_tokens` | int | last API call input tokens (raw) |
+| `turn_output_tokens` | int | last API call output tokens (raw) |
+| `turn_cache_creation_tokens` | int | last API call cache-creation tokens (raw) |
+| `turn_cache_read_tokens` | int | last API call cache-read tokens (raw) |
+
 **Lines changed**
 
 | Name | Type | Description |
